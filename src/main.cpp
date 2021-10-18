@@ -26,30 +26,27 @@
 SoftwareSerial SSerial(12, 14); // D6 and D5 on Wemos D1 mini
 char end_char = '\n';
 
-void OnDataRecv(uint8_t *mac_addr, uint8_t *buff, uint8_t len)
+void OnDataRecv(uint8_t *mac_addr, uint8_t *data, uint8_t len)
 {
     digitalWrite(LED_BUILTIN, LOW);
-    SSerial.write(buff, len);
+    SSerial.write(data, len);
     SSerial.write(end_char);
 
 #ifdef DEBUG_FLAG
 
-    char msg_raw[256];
-    size_t bufflen = sizeof(buff);
-    memcpy(msg_raw, buff, bufflen);
-    msg_raw[bufflen] = '\0'; // 'str' is now a string
+    char *buff = (char *)data;
+    String msg_raw = String(buff);
 
     StaticJsonDocument<256> doc;
 
-    Serial.println(msg_raw);
     deserializeJson(doc, msg_raw);
 
     if (doc["group_id"] == GROUP_ID)
     {
         Serial.print("Received from ");
-        char macAddr[18];
-        sprintf(macAddr, "%02X%02X%02X%02X%02X%02X", doc["sensor_id"][0], doc["sensor_id"][1], doc["sensor_id"][2], doc["sensor_id"][3], doc["sensor_id"][4], doc["sensor_id"][5]);
-        Serial.print(macAddr);
+        String mac;
+        serializeJson(doc["mac"], mac);
+        Serial.print(mac);
         Serial.print(", data: ");
         String data_raw;
         serializeJson(doc["data"], data_raw);
@@ -58,7 +55,12 @@ void OnDataRecv(uint8_t *mac_addr, uint8_t *buff, uint8_t len)
     }
     else
     {
-        Serial.println("Wrong Group ID, ignoring");
+        String unknown_group_id;
+        serializeJson(doc["mac"], unknown_group_id);
+        Serial.print("Wrong Group ID, ignoring");
+        Serial.println(unknown_group_id);
+        Serial.print("Received: ");
+        Serial.println(msg_raw);
     }
 #endif
     digitalWrite(LED_BUILTIN, HIGH);
